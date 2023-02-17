@@ -1,0 +1,22 @@
+{
+	"name": "sparkml",
+	"properties": {
+		"Name": "sparkml",
+		"EntityType": "DATABASE",
+		"Origin": {
+			"Type": "SPARK"
+		},
+		"Properties": {
+			"IsSyMSCDMDatabase": true
+		},
+		"Source": {
+			"Provider": "ADLS",
+			"Location": "abfss://synstrgcntr@synstrgacctchad1.dfs.core.windows.net/sparkml",
+			"Properties": {
+				"FormatType": "csv",
+				"LinkedServiceName": "synwkspcechad1-WorkspaceDefaultStorage"
+			}
+		}
+	},
+	"type": "DATABASE"
+}

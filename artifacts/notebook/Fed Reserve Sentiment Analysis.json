@@ -1,0 +1,234 @@
+{
+	"name": "Fed Reserve Sentiment Analysis",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "synsparkpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "bcbe9b58-ab74-4f52-a2a2-da1e90837979"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/fe474856-b2a7-41a2-8f73-65dfa9dece81/resourceGroups/SynapseDemo/providers/Microsoft.Synapse/workspaces/synwkspcechad1/bigDataPools/synsparkpool",
+				"name": "synsparkpool",
+				"type": "Spark",
+				"endpoint": "https://synwkspcechad1.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/synsparkpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 5,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Connect to Azure SQL Database to get data\r\n",
+					"from pyspark.sql import SparkSession\r\n",
+					"\r\n",
+					"spark = SparkSession.builder.appName(\"LoadAzureSQLTable\").getOrCreate()\r\n",
+					"\r\n",
+					"#Define the connection details\r\n",
+					"server_name = \"sqlsrvartcodedemo01\"\r\n",
+					"database_name = \"ML\"\r\n",
+					"url = f\"jdbc:sqlserver://{server_name}.database.windows.net;database={database_name}\"\r\n",
+					"username = \"coeartuser\"\r\n",
+					"password = \"hl4h:?a2}43nb=ib\"\r\n",
+					"\r\n",
+					"\r\n",
+					"#Load Azure SQL DB as a Spark dataframe\r\n",
+					"table_name = \"dbo.FacebookPosts\"\r\n",
+					"df0 = spark.read \\\r\n",
+					"  .format(\"jdbc\") \\\r\n",
+					"  .option(\"url\", url) \\\r\n",
+					"  .option(\"dbtable\", table_name) \\\r\n",
+					"  .option(\"user\", username) \\\r\n",
+					"  .option(\"password\", password) \\\r\n",
+					"  .load()\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "python"
+					}
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"\r\n",
+					"df1 = df0.where(df0.Post_text.isNotNull())\r\n",
+					"df = df1.withColumn(\"language\", lit(\"en-US\"))\r\n",
+					"\r\n",
+					"spark.sql(\"CREATE DATABASE IF NOT EXISTS federalreservebranchattributes\")\r\n",
+					"df.write.mode(\"overwrite\").saveAsTable(\"sparkml.FedReserveSocialPosts\")"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from synapse.ml.cognitive import *\r\n",
+					"from pyspark.sql.functions import col\r\n",
+					"from pyspark.sql.functions import explode\r\n",
+					"import pandas as pd \r\n",
+					"\r\n",
+					"\r\n",
+					"textKey = \"0b7ca55ae67241bb826d1654d69e1676\"\r\n",
+					"\r\n",
+					"# Load the data into a Spark DataFrame\r\n",
+					"df = spark.sql(\"SELECT * FROM sparkml.FedReserveSocialPosts\")\r\n",
+					"\r\n",
+					"sentiment = (TextSentiment()\r\n",
+					"            .setSubscriptionKey(textKey)\r\n",
+					"            .setLocation(\"eastus\")\r\n",
+					"            .setTextCol(\"Post_text\")\r\n",
+					"            .setOutputCol(\"sentiment\")\r\n",
+					"            .setErrorCol(\"error\")\r\n",
+					"            .setLanguageCol(\"language\"))\r\n",
+					"\r\n",
+					"#sentiment.transform(df).show()\r\n",
+					"results = sentiment.transform(df)\r\n",
+					"\r\n",
+					"#print(results.printSchema())"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"from pyspark.sql.functions import col\r\n",
+					"import pandas as pd \r\n",
+					"\r\n",
+					"df = results\r\n",
+					"\r\n",
+					"new_df = df.select(col(\"publication_date\"), \r\n",
+					"                   col(\"Post_text\"), \r\n",
+					"                   col(\"sentiment.document.sentiment\").alias(\"sentiment\"),\r\n",
+					"                   col(\"sentiment.document.confidenceScores.positive\").alias(\"ConfidenceScorePositive\"),\r\n",
+					"                   col(\"sentiment.document.confidenceScores.neutral\").alias(\"ConfidenceScoreNeutral\"),\r\n",
+					"                   col(\"sentiment.document.confidenceScores.negative\").alias(\"ConfidenceScoreNegative\")\r\n",
+					"                 \r\n",
+					"                   )\r\n",
+					"\r\n",
+					"\r\n",
+					"#Convert to Pandas dataframe \r\n",
+					"pandasDF = new_df.toPandas()\r\n",
+					"\r\n",
+					"\r\n",
+					"#Write to csv file\r\n",
+					"pandasDF.to_csv('abfss://predict@saprvsynraw3ag3v.dfs.core.windows.net/SentimentAnalysis/FedReserveSentimentAnalysisRaw.csv', \r\n",
+					"                        index=False, \r\n",
+					"                        storage_options = {'linked_service' : 'DEMO ADLS'})\r\n",
+					""
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Write results back to the Azure SQL Database as a new table\r\n",
+					"from pyspark.sql import SparkSession\r\n",
+					"import pandas as pd\r\n",
+					"\r\n",
+					"spark = SparkSession.builder.appName(\"WriteToAzureSQL\").getOrCreate()\r\n",
+					"\r\n",
+					"server_name = \"sqlsrvartcodedemo01\"\r\n",
+					"database_name = \"ML\"\r\n",
+					"url = f\"jdbc:sqlserver://{server_name}.database.windows.net;database={database_name}\"\r\n",
+					"username = \"coeartuser\"\r\n",
+					"password = \"hl4h:?a2}43nb=ib\"\r\n",
+					"\r\n",
+					"#Write Pandas dataframe to SQL table\r\n",
+					"table_name = \"dbo.FedReserveSentimentAnalysis\"\r\n",
+					"mode = \"overwrite\"  # overwrite or append\r\n",
+					"new_df.write \\\r\n",
+					"  .format(\"jdbc\") \\\r\n",
+					"  .option(\"url\", url) \\\r\n",
+					"  .option(\"dbtable\", table_name) \\\r\n",
+					"  .option(\"user\", username) \\\r\n",
+					"  .option(\"password\", password) \\\r\n",
+					"  .mode(mode) \\\r\n",
+					"  .save()\r\n",
+					""
+				],
+				"execution_count": 5
+			}
+		]
+	}
+}
