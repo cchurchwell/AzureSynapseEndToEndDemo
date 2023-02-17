@@ -1,5 +1,5 @@
 {
-	"name": "Fed Reserve Sentiment Analysis",
+	"name": "Fed Reserve Entity Detector Analysis",
 	"properties": {
 		"nbformat": 4,
 		"nbformat_minor": 2,
@@ -17,7 +17,7 @@
 				"spark.dynamicAllocation.enabled": "false",
 				"spark.dynamicAllocation.minExecutors": "2",
 				"spark.dynamicAllocation.maxExecutors": "2",
-				"spark.autotune.trackingId": "c1d927f8-2859-4ecd-a744-7c6cf606e502"
+				"spark.autotune.trackingId": "5eb28e42-908e-46cd-a3b5-82f97a6e1182"
 			}
 		},
 		"metadata": {
